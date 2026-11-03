@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
@@ -86,6 +87,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun REAChatScreen() {
+    val context = LocalContext.current
+    var showTerminal by remember { mutableStateOf(false) }
     val messages = remember {
         mutableStateListOf(
             ChatMessage(
@@ -113,6 +116,14 @@ private fun REAChatScreen() {
         ) {
             Header()
 
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { showTerminal = false }, modifier = Modifier.weight(1f)) { Text("المحادثة") }
+                OutlinedButton(onClick = { showTerminal = true }, modifier = Modifier.weight(1f)) { Text("Terminal") }
+            }
+
+            if (showTerminal) {
+                TerminalPanel(context.filesDir)
+            } else {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Panel),
                 shape = RoundedCornerShape(22.dp)
@@ -199,6 +210,7 @@ private fun REAChatScreen() {
                 color = Muted,
                 fontSize = 10.sp
             )
+            }
         }
     }
 }
