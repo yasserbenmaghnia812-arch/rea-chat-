@@ -51,7 +51,7 @@ fun TerminalPanel(appDirectory: File) {
     var running by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth().weight(1f),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
@@ -142,21 +142,19 @@ private fun executeAndroidCommand(
     }
 
     return try {
+        val outputFile = File.createTempFile("rea-shell-", ".log", appDirectory)
         val process = ProcessBuilder("/system/bin/sh", "-c", input)
             .directory(currentDirectory)
             .redirectErrorStream(true)
+            .redirectOutput(outputFile)
             .start()
-        val output = process.inputStream.bufferedReader().use { reader ->
-            val collected = mutableListOf<String>()
-            while (collected.size < 300) {
-                val line = reader.readLine() ?: break
-                collected.add(line)
-            }
-            collected
-        }
         val completed = process.waitFor(30, TimeUnit.SECONDS)
         if (!completed) {
             process.destroyForcibly()
+        }
+        val output = outputFile.readLines().take(300)
+        outputFile.delete()
+        if (!completed) {
             currentDirectory to (output + "انتهت مهلة الأمر (30 ثانية).")
         } else {
             currentDirectory to (if (output.isEmpty()) listOf("اكتمل الأمر، رمز الخروج: ${process.exitValue()}") else output)
