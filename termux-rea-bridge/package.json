@@ -1,0 +1,8 @@
+{
+  "name": "rea-chat-local-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Termux HTTP bridge for REA APK analysis",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "busboy": "^1.6.0" }
+}
