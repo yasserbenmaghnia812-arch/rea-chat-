@@ -2,6 +2,11 @@ package com.yasser.reachat
 
 import android.net.Uri
 import android.os.Bundle
+import android.content.ContentResolver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -76,7 +81,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Ink) {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        REAChatScreen()
+                        REAChatScreen(contentResolver = this@MainActivity.contentResolver)
                     }
                 }
             }
@@ -85,7 +90,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun REAChatScreen() {
+private fun REAChatScreen(contentResolver: ContentResolver) {
     val messages = remember {
         mutableStateListOf(
             ChatMessage(
@@ -96,11 +101,14 @@ private fun REAChatScreen() {
     }
     var draft by remember { mutableStateOf("") }
     var selectedName by remember { mutableStateOf<String?>(null) }
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var busy by remember { mutableStateOf(false) }
 
     val apkPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
+            selectedUri = uri
             selectedName = uri.lastPathSegment?.substringAfterLast('/') ?: "ملف APK"
             messages.add(ChatMessage("تم اختيار الملف: $selectedName", true))
         }
@@ -141,6 +149,7 @@ private fun REAChatScreen() {
                     }
                     if (selectedName != null) {
                         Text("الملف المحدد: $selectedName", color = Cyan, fontSize = 12.sp)
+                        Button(onClick = { val uri = selectedUri; if (uri != null && !busy) { busy = true; CoroutineScope(Dispatchers.Main).launch { val result = withContext(Dispatchers.IO) { ReaApi.analyze(contentResolver, uri) }; messages.add(ChatMessage(result, false)); busy = false } } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "جارٍ التحليل..." else "بدء التحليل الفعلي") }
                     }
                 }
             }
