@@ -1,35 +1,29 @@
-# REA Chat
+# REA Console
 
-An Android client prototype for an authorized REA (Reverse Engineer Anything) analysis workflow.
+تطبيق Android أصلي بواجهة عربية RTL لا يشغّل REA على الهاتف. يرفع ملف APK إلى `targets/` في المستودع ويشغّل التحليل على GitHub Actions.
 
-## Current status
+## إعداد GitHub Token
+من GitHub افتح **Settings → Developer settings → Personal access tokens**. أنشئ Fine-grained token للمستودع مع **Contents: Read and write** و**Actions: Read and write**؛ أو Classic token بالنطاقين **repo** و**workflow**. أدخل الرمز واسم المستودع بصيغة `owner/repo` في إعدادات التطبيق. يُحفظ الرمز باستخدام EncryptedSharedPreferences ولا يُطبع في السجلات.
 
-- Arabic-first RTL chat interface.
-- Android Storage Access Framework picker for selecting an APK; no broad storage permission is requested.
-- GitHub Actions workflow to build a debug APK and publish it as a workflow artifact.
-- **REA analysis is not connected yet.** This is a UI/build foundation and does not claim to analyze uploaded files.
+## أسرار توقيع APK
+أنشئ keystore محلياً ولا ترفعه. في **Repository → Settings → Secrets and variables → Actions** أضف:
+- `SIGNING_KEY`: ملف keystore بصيغة Base64.
+- `ALIAS`: اسم المفتاح.
+- `KEY_STORE_PASSWORD`: كلمة مرور keystore.
+- `KEY_PASSWORD`: كلمة مرور المفتاح.
 
-## Planned architecture
+عند دفع tag يبدأ بـ `v`، يبني workflow نسخة Release ويوقّعها ثم ينشرها في GitHub Releases. لا تضع أي مفتاح توقيع أو keystore في المستودع.
 
-1. Android app: chat UI, APK selection, job status and results.
-2. Authenticated API gateway: validates users and requests, stores job metadata, and routes requests.
-3. Ephemeral Linux runner: executes REA and required analysis tools in an isolated job.
-4. Results: return bounded text reports and downloadable artifacts through authenticated, short-lived links.
+## تنزيل APK
+افتح **Actions → Android APK**، واختر أحدث تشغيل ناجح، ثم نزّل artifact باسم `rea-console-debug-apk`. للإصدار الموقّع افتح **Releases** ونزّل APK المرتبط بالـ tag.
 
-## Security rules
+## تحليل APK
+أدخل Token واسم المستودع، ثم اختر APK. يُرفع الملف إلى `targets/` ويُشغّل `rea-apk-analysis.yml`. يحتوي artifact `rea-results` على `help.txt` ونتيجة الفحص أو سبب تعذر تشغيله.
 
-- Never commit APK uploads, API keys, access tokens, signing keys, or other secrets.
-- Do not expose an unauthenticated REA MCP endpoint to the public internet.
-- Treat uploaded APKs as untrusted input. Run analysis in isolated, disposable environments.
-- Use this project only for applications and binaries you own or are authorized to assess.
+الـ workflow يحفظ ناتج `npx -y rea-agents@latest --help` أولاً، ثم لا يستعمل إلا أمراً يظهر صراحة في help. إن لم تعلن نسخة CLI أمراً لفحص Android APK، يفشل بوضوح ولا يخمّن اسماً أو ينشئ تقريراً وهمياً. استخدم التطبيق فقط لتحليل تطبيقات وملفات APK التي تملكها أو لديك تصريح صريح بفحصها.
 
-## Build
-
-The public GitHub Actions workflow builds app-debug.apk on pushes and pull requests. Open **Actions → Android Debug APK → Artifacts** to retrieve the generated APK.
-
-## Next integration steps
-
-- Select and configure a free-tier AI provider without embedding its key in the APK.
-- Add an authenticated backend and secure upload/result storage.
-- Add a server-side job dispatcher for isolated REA runs.
-- Configure secrets only after the backend design and permissions are reviewed.
+## الوحدات
+- `app`: واجهة Compose.
+- `core:network`: Retrofit وKotlinx Serialization.
+- `core:data`: التخزين المحلي الآمن.
+- `feature:analysis`: ميزة التحليل.
