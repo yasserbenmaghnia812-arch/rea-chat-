@@ -60,7 +60,7 @@ export default function Home() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` }
+        options: { redirectTo: "https://rea-chat.vercel.app/auth/callback" }
       });
       if (error) throw error;
     } catch (error) {
@@ -74,7 +74,7 @@ export default function Home() {
     try {
       const result = authMode === "login"
         ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
-        : await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: email.split("@")[0] }, emailRedirectTo: `${window.location.origin}/auth/callback` } });
+        : await supabase.auth.signUp({ email: email.trim(), password, options: { data: { full_name: email.split("@")[0] }, emailRedirectTo: "https://rea-chat.vercel.app/auth/callback" } });
       if (result.error) throw result.error;
       if (authMode === "signup" && !result.data.session) setNotice("تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتأكيده ثم سجّل الدخول.");
       else setNotice("تم تسجيل الدخول.");
