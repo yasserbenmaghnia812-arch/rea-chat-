@@ -43,6 +43,7 @@ export default function Home() {
         if (error) { if (active) setNotice(error.message); return; }
         id = data.id;
       }
+      if (!id) { if (active) setNotice("تعذر إنشاء المحادثة."); return; }
       if (!active) return;
       setConversationId(id);
       const { data: history, error } = await supabase.from("messages").select("id,role,content,created_at").eq("conversation_id", id).order("created_at", { ascending: true }).limit(100);
