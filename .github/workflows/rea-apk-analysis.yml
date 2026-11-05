@@ -11,6 +11,7 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,28 +21,39 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Print REA CLI help
+      - name: Install Linux process tools required by REA
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y procps
+      - name: Download and verify the pinned JADX engine
         shell: bash
         run: |
-          mkdir -p out
-          npx -y rea-agents@latest --help 2>&1 | tee out/help.txt
-      - name: Run Android APK inspection only when advertised by help
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rea-android"
+          cd "$RUNNER_TEMP/rea-android"
+          curl -fL --retry 3 -o jadx-headless-mcp-0.7.1-all.jar https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.7.1/jadx-headless-mcp-0.7.1-all.jar
+          echo "6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75  jadx-headless-mcp-0.7.1-all.jar" | sha256sum -c -
+      - name: Inspect APK with REA
         shell: bash
         env:
           APK_PATH: ${{ inputs.apk_path }}
+          REA_JADX_MCP_JAR: ${{ runner.temp }}/rea-android/jadx-headless-mcp-0.7.1-all.jar
         run: |
           set -euo pipefail
+          mkdir -p out
+          npx -y rea-agents@latest --help 2>&1 | tee out/help.txt
           [[ "$APK_PATH" == targets/*.apk && -f "$APK_PATH" ]] || { echo "APK path must point to an existing APK inside targets/" | tee out/error.txt; exit 1; }
-          HELP="$(cat out/help.txt)"
-          COMMAND="$(printf '%s\n' "$HELP" | grep -Eo 'inspect-android-package|analyze-android-package|inspect-android-apk|analyze-android-apk' | head -n1 || true)"
-          if [[ -z "$COMMAND" ]]; then
-            echo "No Android APK command is listed in rea-agents --help. Inspect help.txt; no guessed command was run." | tee out/error.txt
-            exit 2
-          fi
-          echo "$COMMAND" | tee out/command.txt
-          npx -y rea-agents@latest "$COMMAND" "$APK_PATH" --json > out/package.json
-          node -e "JSON.parse(require('fs').readFileSync('out/package.json','utf8'))"
-      - name: Upload results even after a failure
+          grep -q "inspect-android-package" out/help.txt || { echo "Installed rea-agents CLI does not advertise inspect-android-package. See help.txt." | tee out/error.txt; exit 2; }
+          grep -q "inspect-apk-signature" out/help.txt || { echo "Installed rea-agents CLI does not advertise inspect-apk-signature. See help.txt." | tee out/error.txt; exit 2; }
+          npx -y rea-agents@latest inspect-android-package "$APK_PATH" --json > out/android-package.raw.json
+          npx -y rea-agents@latest inspect-apk-signature "$APK_PATH" --json > out/signature.raw.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const android = JSON.parse(fs.readFileSync('out/android-package.raw.json', 'utf8'));
+          const signature = JSON.parse(fs.readFileSync('out/signature.raw.json', 'utf8'));
+          fs.writeFileSync('out/package.json', JSON.stringify({ android, signature }, null, 2) + '\n');
+          NODE
+      - name: Upload REA output even when analysis fails
         if: always()
         uses: actions/upload-artifact@v4
         with:
