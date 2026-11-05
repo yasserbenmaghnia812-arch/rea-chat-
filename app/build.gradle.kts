@@ -14,7 +14,7 @@ dependencies {
  implementation(platform("androidx.compose:compose-bom:2025.10.00"))
  implementation("androidx.activity:activity-compose:1.11.0"); implementation("androidx.compose.ui:ui"); implementation("androidx.compose.ui:ui-tooling-preview"); implementation("androidx.compose.material3:material3")
  implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4"); implementation("androidx.datastore:datastore-preferences:1.1.7")
- implementation("androidx.security:security-crypto:1.1.0"); implementation("com.squareup.retrofit2:retrofit:2.11.0")
+ implementation("androidx.security:security-crypto:1.1.0-alpha06"); implementation("com.squareup.retrofit2:retrofit:2.11.0")
  implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0"); implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0"); implementation("com.squareup.okhttp3:okhttp:4.12.0")
  implementation("com.google.dagger:hilt-android:2.57.2"); ksp("com.google.dagger:hilt-compiler:2.57.2")
  debugImplementation("androidx.compose.ui:ui-tooling")
