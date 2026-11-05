@@ -15,7 +15,7 @@ export default function AuthCallback() {
       const code = url.searchParams.get("code");
       const authError = url.searchParams.get("error_description") || url.searchParams.get("error");
       if (authError) {
-        if (active) setMessage(decodeURIComponent(authError.replace(/\+/g, " ")));
+        if (active) setMessage(authError);
         return;
       }
       if (code) {
