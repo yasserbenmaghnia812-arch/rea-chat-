@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
   const { data: conversation } = await supabase.from("conversations").select("id").eq("id", body.conversation_id).eq("user_id", auth.user.id).maybeSingle();
   if (!conversation) return NextResponse.json({ error: "المحادثة غير موجودة." }, { status: 404 });
   const { data: history } = await supabase.from("messages").select("role,content").eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(20);
-  const messages = [...(history || []).filter(m => m.role === "user" || m.role === "assistant")];\n  if (messages[messages.length - 1]?.role !== "user" || messages[messages.length - 1]?.content !== body.message) messages.push({ role: "user", content: body.message });\n  const boundedMessages = messages.slice(-20);
+  const messages = [...(history || []).filter(m => m.role === "user" || m.role === "assistant")];
+  if (messages[messages.length - 1]?.role !== "user" || messages[messages.length - 1]?.content !== body.message) messages.push({ role: "user", content: body.message });
+  const boundedMessages = messages.slice(-20);
   const providers = [
     ["Gemini", process.env.GEMINI_API_KEY, askGemini],
     ["Groq", process.env.GROQ_API_KEY, askGroq],
