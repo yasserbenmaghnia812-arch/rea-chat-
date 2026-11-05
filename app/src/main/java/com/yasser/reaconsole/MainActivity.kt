@@ -24,6 +24,10 @@ import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.encodeToString
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -40,7 +44,6 @@ import java.util.zip.ZipInputStream
 @Serializable data class ContentsBody(val message:String,val content:String)
 @Serializable data class ArtifactList(val artifacts:List<Artifact> = emptyList())
 @Serializable data class Artifact(val id:Long,val name:String,val expired:Boolean=false)
-@Serializable data class ApkReport(val packageName:String?=null,val package_name:String?=null,val name:String?=null,val permissions:List<String> = emptyList(),val activities:List<String> = emptyList(),val signatures:List<String> = emptyList(),val signingCertificates:List<String> = emptyList())
 
 interface GithubApi {
  @PUT("repos/{owner}/{repo}/contents/{path}") suspend fun upload(@Path("owner") owner:String,@Path("repo") repo:String,@Path(value="path",encoded=true) path:String,@Header("Authorization") auth:String,@Body body:ContentsBody):retrofit2.Response<okhttp3.ResponseBody>
@@ -91,11 +94,14 @@ class MainActivity:ComponentActivity(){
        check(started.isSuccessful){"تعذر تشغيل workflow (HTTP ${started.code()}). تحقق من صلاحية Actions"}
        withContext(Dispatchers.Main){state="تم الرفع. ننتظر بدء التحليل..."}
        var run:RunItem?=null
-       repeat(30){
+       for(attempt in 0 until 30){
         delay(4000)
         val latest=api.runs(parts.first,parts.second,auth()).workflow_runs.firstOrNull()
-        if(latest!=null){run=latest;withContext(Dispatchers.Main){state=translate(latest.status,latest.conclusion);workflowUrl=latest.html_url}}
-        if(latest?.status=="completed")return@repeat
+        if(latest!=null){
+         run=latest
+         withContext(Dispatchers.Main){state=translate(latest.status,latest.conclusion);workflowUrl=latest.html_url}
+         if(latest.status=="completed") break
+        }
        }
        val finished=run
        if(finished!=null&&finished.status=="completed"&&finished.conclusion=="success"){
@@ -108,15 +114,26 @@ class MainActivity:ComponentActivity(){
          var packageJson:String?=null
          ZipInputStream(ByteArrayInputStream(zip)).use{z->while(true){val entry=z.nextEntry?:break;if(entry.name.endsWith("package.json")){packageJson=z.readBytes().toString(Charsets.UTF_8);break}}}
          val raw=packageJson?:error("لم يتضمن artifact ملف package.json. افتح help.txt وملفات out لمعرفة السبب.")
-         val parsed=json.decodeFromString<ApkReport>(raw)
-         val pkg=parsed.packageName?:parsed.package_name?:parsed.name?:"غير متوفر"
+         val root=json.parseToJsonElement(raw)
+         val pkg=findReportValue(root,setOf("package_name","packagename","package"))?.toString()?.trim('"')?:"راجع تفاصيل التقرير"
+         val permissions=findReportValue(root,setOf("permissions"))?.toString()?:"غير متاحة في نتيجة REA"
+         val components=findReportValue(root,setOf("components","activities"))?.toString()?:"غير متاحة في نتيجة REA"
+         val signatures=findReportValue(root,setOf("signers","signatures","signing_certificates","signingcertificates"))?.toString()?:"راجع قسم التوقيع"
+         val prettyJson=Json{prettyPrint=true;ignoreUnknownKeys=true}.encodeToString(JsonElement.serializer(),root)
          val pretty=buildString{
-          appendLine("الحزمة: $pkg");appendLine();appendLine("الصلاحيات:")
-          appendLine(if(parsed.permissions.isEmpty())"لا توجد بيانات" else parsed.permissions.joinToString("\n"))
-          appendLine();appendLine("الأنشطة:");appendLine(if(parsed.activities.isEmpty())"لا توجد بيانات" else parsed.activities.joinToString("\n"))
-          appendLine();appendLine("التوقيعات:")
-          val sig=parsed.signatures+parsed.signingCertificates
-          appendLine(if(sig.isEmpty())"لا توجد بيانات" else sig.joinToString("\n"))
+          appendLine("الحزمة: $pkg")
+          appendLine()
+          appendLine("الصلاحيات:")
+          appendLine(permissions)
+          appendLine()
+          appendLine("الأنشطة والمكوّنات:")
+          appendLine(components)
+          appendLine()
+          appendLine("التوقيعات:")
+          appendLine(signatures)
+          appendLine()
+          appendLine("التقرير الكامل:")
+          append(prettyJson)
          }
          withContext(Dispatchers.Main){rawReport=raw;reportText=pretty;state="نجح التحليل وتم استلام التقرير"}
         }else withContext(Dispatchers.Main){state="نجح التحليل، لكن artifact rea-results غير موجود"}
@@ -170,4 +187,16 @@ fun errorArabic(e:Exception):String=when{
  e.message?.contains("404")==true->"المستودع أو workflow غير موجود."
  e.message?.contains("429")==true->"تجاوزت حد طلبات GitHub؛ أعد المحاولة لاحقاً."
  else->e.message?:"حدث خطأ غير معروف."
+}
+
+ 
+private fun findReportValue(element: JsonElement, keys: Set<String>): JsonElement? {
+    return when (element) {
+        is JsonObject -> {
+            val direct = element.entries.firstOrNull { it.key.lowercase() in keys }?.value
+            direct ?: element.values.firstNotNullOfOrNull { findReportValue(it, keys) }
+        }
+        is JsonArray -> element.firstNotNullOfOrNull { findReportValue(it, keys) }
+        else -> null
+    }
 }
