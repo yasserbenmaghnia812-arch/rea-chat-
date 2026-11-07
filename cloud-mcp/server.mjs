@@ -1,4 +1,5 @@
 import http from "node:http";
+import net from "node:net";
 import { spawn } from "node:child_process";
 
 const PORT = Number(process.env.PORT || 10000);
@@ -32,21 +33,15 @@ function waitReady() {
     const start = Date.now();
     const probe = () => {
       if (reaExited) return reject(Error("REA exited"));
-      const q = http.get({
-        host: "127.0.0.1",
-        port: REA_PORT,
-        path: "/mcp",
-        timeout: 1500,
-        headers: {
-          accept: "text/event-stream",
-          "cache-control": "no-cache"
-        }
-      }, r => {
-        r.resume();
-        resolve();
+      const socket = net.createConnection({ host: "127.0.0.1", port: REA_PORT });
+      socket.setTimeout(1500);
+      socket.once("connect", () => { socket.destroy(); resolve(); });
+      socket.once("error", () => {
+        socket.destroy();
+        if (Date.now() - start > 90000) reject(Error("REA startup timeout"));
+        else setTimeout(probe, 500);
       });
-      q.on("error", () => Date.now() - start > 90000 ? reject(Error("REA startup timeout")) : setTimeout(probe, 500));
-      q.on("timeout", () => q.destroy());
+      socket.once("timeout", () => socket.destroy());
     };
     probe();
   });
