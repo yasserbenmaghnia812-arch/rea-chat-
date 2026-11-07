@@ -9,7 +9,5 @@ services:
     healthCheckPath: /health
     autoDeploy: false
     envVars:
-      - key: MCP_BEARER_TOKEN
-        sync: false
       - key: REA_LOG_LEVEL
         value: info
