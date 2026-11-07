@@ -32,7 +32,16 @@ function waitReady() {
     const start = Date.now();
     const probe = () => {
       if (reaExited) return reject(Error("REA exited"));
-      const q = http.get({ host: "127.0.0.1", port: REA_PORT, path: "/mcp", timeout: 1500 }, r => {
+      const q = http.get({
+        host: "127.0.0.1",
+        port: REA_PORT,
+        path: "/mcp",
+        timeout: 1500,
+        headers: {
+          accept: "text/event-stream",
+          "cache-control": "no-cache"
+        }
+      }, r => {
         r.resume();
         resolve();
       });
